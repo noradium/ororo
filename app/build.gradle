@@ -1,0 +1,33 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'jp.ororo.catlog'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'jp.ororo.catlog'
+        minSdk 26
+        targetSdk 35
+        versionCode 2
+        versionName '1.1'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            // JVM tests need the same proxy as Gradle when Robolectric fetches its SDK.
+            ['http.proxyHost', 'http.proxyPort', 'https.proxyHost', 'https.proxyPort'].each { key ->
+                if (System.getProperty(key) != null) systemProperty key, System.getProperty(key)
+            }
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+        }
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+}

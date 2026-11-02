@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cat_history">%1$sの記録</string>
+    <string name="cat_record_heading">%1$sのようすを記録</string>
+    <string name="unassigned_count">未分類の記録（%1$d件）を振り分ける</string>
+    <string name="calendar_month">%1$d年 %2$d月</string>
+    <string name="calendar_day">%1$d\n%2$s</string>
+    <string name="history_title">%1$s の記録</string>
+    <string name="daily_summary">うんち %1$d回　おしっこ %2$d回　嘔吐 %3$d回\nご飯廃棄 %4$d回・計 %5$s g</string>
+</resources>
