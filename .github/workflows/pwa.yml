@@ -1,0 +1,41 @@
+name: PWA checks
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/pwa.yml']
+  pull_request:
+    paths: ['web/**', '.github/workflows/pwa.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:rules
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:auth
+        env:
+          CHROME_PATH: playwright
+      - run: npm run test:google-popup
+        env:
+          CHROME_PATH: playwright
+      - run: npm run test:e2e
+        env:
+          # Use the installed Playwright browser in CI; see playwright.config.ts.
+          CHROME_PATH: playwright
