@@ -12,12 +12,15 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
+    "prebuild": "node scripts/access-config.mjs",
+    "pretest:rules": "node scripts/access-config.mjs",
+    "preemulators": "node scripts/access-config.mjs --development",
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run src",
     "test:auth": "firebase emulators:exec --project demo-ororo --only auth \"vitest run tests/auth.test.ts && playwright test --config playwright.auth.config.ts\"",
     "test:google-popup": "firebase emulators:exec --project demo-ororo --only auth \"playwright test --config playwright.google.config.ts\"",
     "test:rules": "firebase emulators:exec --project demo-ororo --only auth,firestore \"vitest run tests/rules.test.ts\"",
-    "test:e2e": "playwright test",
+    "test:e2e": "firebase emulators:exec --project demo-ororo --only auth \"playwright test\"",
     "emulators": "firebase emulators:start --project demo-ororo --only auth,firestore",
     "deploy": "npm run build && firebase deploy --only hosting,firestore"
   },

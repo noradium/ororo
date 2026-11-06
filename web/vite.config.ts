@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { loadAccess } from './scripts/access-config.mjs';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  define: { __ALLOWED_GOOGLE_EMAIL_HASHES__: JSON.stringify(loadAccess(mode).hashes) },
   build: {
     rolldownOptions: {
       output: {
@@ -45,4 +47,4 @@ export default defineConfig({
       },
     }),
   ],
-});
+}));

@@ -1,3 +1,4 @@
+import { renderAccessRules } from '../scripts/access-config.mjs';
 import { beforeAll, beforeEach, afterAll, expect, it } from 'vitest';
 import {
   initializeTestEnvironment,
@@ -27,7 +28,11 @@ let env: RulesTestEnvironment;
 const token = 'a'.repeat(43);
 const db = (uid: string, verified = true): Firestore =>
   env
-    .authenticatedContext(uid, { email: `${uid}@example.com`, email_verified: verified })
+    .authenticatedContext(uid, {
+      email: `${uid}@example.com`,
+      email_verified: verified,
+      firebase: { sign_in_provider: 'google.com' },
+    })
     .firestore() as unknown as Firestore;
 const event = (extra = {}) => ({
   catId: 'MONET',
@@ -44,7 +49,16 @@ const event = (extra = {}) => ({
 beforeAll(async () => {
   env = await initializeTestEnvironment({
     projectId: 'demo-ororo',
-    firestore: { host: '127.0.0.1', port: 8089, rules: readFileSync('firestore.rules', 'utf8') },
+    firestore: {
+      host: '127.0.0.1',
+      port: 8089,
+      rules: renderAccessRules(
+        readFileSync('firestore.rules', 'utf8'),
+        ['alice', 'bob', 'charlie', 'mallory', 'new-owner', 'stranger', 'outsider'].map(
+          (uid) => `${uid}@example.com`,
+        ),
+      ),
+    },
   });
 }, 30000);
 afterAll(async () => {
@@ -244,3 +258,13 @@ it('syncs two independent device outboxes with idempotent retries and deletion-w
     await localB.close();
   }
 }, 30000);
+
+it('denies an unlisted Google account even with a pre-existing membership', async () => {
+  await env.withSecurityRulesDisabled(async (context) => {
+    await context
+      .firestore()
+      .doc('families/family/members/denied')
+      .set({ uid: 'denied', role: 'member', createdAt: new Date() });
+  });
+  await assertFails(getDoc(doc(db('denied'), 'families/family')));
+});

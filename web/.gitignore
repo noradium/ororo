@@ -10,3 +10,4 @@ playwright-report/
 *.tsbuildinfo
 *.log
 production-audit.json
+firestore.generated.rules

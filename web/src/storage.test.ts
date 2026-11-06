@@ -13,6 +13,20 @@ const record = (id = 'a'): CatRecord => ({
   deletedAt: null,
 });
 const databases: LocalDatabase[] = [];
+it('isolates signed-in solo accounts and only imports anonymous legacy data explicitly', async () => {
+  const db = database();
+  const a = new RecordRepository(db, undefined, 'alice');
+  const b = new RecordRepository(db, undefined, 'bob');
+  await a.add('MONET', 'POOP', null);
+  expect(await b.exportAll()).toEqual([]);
+  await db.insert('local', record('legacy'), false);
+  expect(await b.exportAll()).toEqual([]);
+  expect(await b.import(await b.localRecords())).toBe(1);
+  expect((await b.exportAll()).map((r) => r.id)).toEqual(['legacy']);
+  expect((await a.exportAll()).some((r) => r.id === 'legacy')).toBe(false);
+  a.dispose();
+  b.dispose();
+});
 function database() {
   const db = new LocalDatabase(`test-${crypto.randomUUID()}`);
   databases.push(db);

@@ -10,6 +10,7 @@ export default defineConfig({
     url: 'http://127.0.0.1:4175',
     timeout: 30000,
     env: {
+      ALLOWED_GOOGLE_EMAILS: 'ororo-browser@gmail.com,ororo-other@gmail.com',
       VITE_FIREBASE_API_KEY: 'demo-key',
       VITE_FIREBASE_AUTH_DOMAIN: 'demo-ororo.firebaseapp.com',
       VITE_FIREBASE_PROJECT_ID: 'demo-ororo',

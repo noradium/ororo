@@ -959,3 +959,74 @@ dialog .error {
   font-weight: 700;
   line-height: 1;
 }
+
+.welcome {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: calc(38px + env(safe-area-inset-top)) 24px calc(38px + env(safe-area-inset-bottom));
+  background: radial-gradient(ellipse at 50% 42%, #e8ecdf 0, transparent 60%), var(--paper);
+}
+.welcome-card {
+  width: 100%;
+  max-width: 370px;
+  text-align: center;
+}
+.welcome h1 {
+  font-size: 62px;
+  font-weight: 550;
+  letter-spacing: 0.17em;
+  margin: 18px 0 12px;
+  padding-left: 0.17em;
+}
+.welcome-tagline {
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+}
+.welcome-cats {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin: 40px auto 32px;
+  width: 290px;
+  height: 170px;
+  max-width: 100%;
+}
+.welcome-cat {
+  display: block;
+  transform: rotate(-10deg) translateX(8px);
+  position: relative;
+  z-index: 1;
+}
+.welcome-cat + .welcome-cat {
+  transform: rotate(10deg) translateX(-8px);
+  z-index: 0;
+}
+.welcome .portrait {
+  width: 145px;
+  height: 145px;
+  max-width: 42vw;
+  filter: drop-shadow(0 9px 8px #365e4e0b);
+}
+.welcome-sparkle {
+  position: absolute;
+  right: 2px;
+  top: -9px;
+  font-size: 27px;
+  color: #a3ad82;
+}
+.welcome .google-button {
+  box-shadow: 0 3px 16px #365e4e0a;
+}
+.welcome .fineprint {
+  margin-top: 18px;
+  font-size: 10px;
+}
+.welcome .error {
+  text-align: left;
+}

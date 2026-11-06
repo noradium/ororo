@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../helpers/session';
 import { dayKey, monthRange, shiftMonth } from '../../src/model';
 
 test('opens an invitation received while the app is already running', async ({ page }) => {
@@ -7,7 +7,9 @@ test('opens an invitation received while the app is already running', async ({ p
     location.hash = `invite=${'a'.repeat(43)}`;
   });
   await expect(page.getByRole('dialog')).toBeVisible();
-  await expect(page.getByRole('dialog')).toContainText('家族共有の初期設定が必要');
+  await expect(
+    page.getByRole('dialog').getByRole('button', { name: '家族に参加する' }),
+  ).toBeVisible();
 });
 
 test('records each cat separately, validates food, survives reload and confirms deletion', async ({
@@ -132,15 +134,9 @@ test('installed service worker opens offline and persists a new record across of
   await context.setOffline(false);
 });
 
-test('offers connection instructions without pretending unconfigured sharing works', async ({
-  page,
-}) => {
+test('keeps the signed-in diary responsive on desktop', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '家族共有' }).click();
-  await expect(page.getByRole('dialog')).toContainText('家族共有の初期設定が必要');
-  await expect(page.getByRole('button', { name: '家族に参加する' })).toHaveCount(0);
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'ねこの、いつもを。' })).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.screenshot({ path: 'test-results/ororo-desktop.png', fullPage: true });
 });

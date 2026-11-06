@@ -43,7 +43,12 @@ export const auth = app
     })
   : null;
 export const firestore = app ? getFirestore(app) : null;
-if (env.DEV && env.VITE_USE_EMULATORS === 'true' && auth && firestore) {
+if (
+  env.VITE_USE_EMULATORS === 'true' &&
+  ['localhost', '127.0.0.1'].includes(location.hostname) &&
+  auth &&
+  firestore
+) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectFirestoreEmulator(firestore, '127.0.0.1', 8089);
 }

@@ -16,7 +16,7 @@ async function chooseGoogle(page: Page, email: string) {
 test('logs in with Google, preserves login after reload and offers no password form', async ({
   page,
 }) => {
-  const email = `google-browser-${crypto.randomUUID()}@gmail.com`;
+  const email = 'ororo-browser@gmail.com';
   await page.goto('/');
   await page.getByRole('button', { name: '家族共有' }).click();
   const dialog = page.getByRole('dialog');

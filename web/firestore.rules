@@ -1,7 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function verified() { return request.auth != null && request.auth.token.email_verified == true; }
+    function verified() {
+      return request.auth != null && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email is string
+        && request.auth.token.email.lower() in [] /* ALLOWED_GOOGLE_EMAILS */;
+    }
     function member(family) { return verified() && exists(/databases/$(database)/documents/families/$(family)/members/$(request.auth.uid)); }
     function owner(family) { return member(family) && get(/databases/$(database)/documents/families/$(family)).data.ownerId == request.auth.uid; }
     function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }

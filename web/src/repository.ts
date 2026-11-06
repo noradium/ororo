@@ -43,8 +43,13 @@ export class RecordRepository {
   constructor(
     private local: LocalDatabase,
     readonly remote?: Remote,
+    private localUid?: string,
   ) {
-    this.scope = remote ? `family:${remote.uid}:${remote.familyId}` : 'local';
+    this.scope = remote
+      ? `family:${remote.uid}:${remote.familyId}`
+      : localUid
+        ? `local:${localUid}`
+        : 'local';
     if (typeof window !== 'undefined') window.addEventListener('online', this.onOnline);
   }
   subscribe(listener: (state: StoreState) => void) {
@@ -146,7 +151,10 @@ export class RecordRepository {
     return inserted;
   }
   async localRecords() {
-    return this.local.records('local');
+    const legacy = await this.local.records('local');
+    const uid = this.remote?.uid ?? this.localUid;
+    const personal = uid ? await this.local.records(`local:${uid}`) : [];
+    return [...new Map([...legacy, ...personal].map((record) => [record.id, record])).values()];
   }
   async exportAll(): Promise<CatRecord[]> {
     if (this.remote) {
