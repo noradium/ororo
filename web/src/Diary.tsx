@@ -477,6 +477,9 @@ export function Diary({
                 嘔吐 <b>{summary.counts.VOMIT}</b>回
               </span>
               <span>
+                おめめ痛々 <b>{summary.counts.EYE_PAIN}</b>回
+              </span>
+              <span>
                 ご飯廃棄 <b>{summary.counts.FOOD}</b>回 / <b>{summary.grams}</b> g
               </span>
             </div>

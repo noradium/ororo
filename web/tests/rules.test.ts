@@ -181,6 +181,12 @@ it('validates record fields, identity, grams and immutable occurrence data', asy
   const client = db('alice');
   const ref = doc(client, 'families/family/records/x');
   await assertSucceeds(setDoc(ref, event()));
+  await assertSucceeds(
+    setDoc(doc(client, 'families/family/records/eye'), event({ type: 'EYE_PAIN', grams: null })),
+  );
+  await assertFails(
+    setDoc(doc(client, 'families/family/records/eye-bad'), event({ type: 'EYE_PAIN', grams: 1 })),
+  );
   await assertFails(setDoc(doc(client, 'families/family/records/bad'), event({ catId: 'OTHER' })));
   await assertFails(setDoc(doc(client, 'families/family/records/bad'), event({ grams: -1 })));
   await assertFails(

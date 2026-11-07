@@ -2,6 +2,39 @@ import { describe, expect, it } from 'vitest';
 import { parseImport, exportRecords, dayKey, monthRange, shiftMonth, summarize } from './model';
 
 describe('Android migration and calendar', () => {
+  it('preserves eye-pain records in exports and counts only active entries', () => {
+    const records = parseImport(
+      JSON.stringify({
+        version: 3,
+        records: [
+          {
+            id: 'eye-1',
+            catId: 'MONET',
+            type: 'EYE_PAIN',
+            grams: null,
+            occurredAt: 1234,
+            createdBy: 'local',
+            deletedAt: null,
+          },
+          {
+            id: 'eye-2',
+            catId: 'MONET',
+            type: 'EYE_PAIN',
+            grams: null,
+            occurredAt: 5678,
+            createdBy: 'local',
+            deletedAt: 9999,
+          },
+        ],
+      }),
+    );
+    expect(parseImport(exportRecords(records))).toEqual(records);
+    expect(summarize(records).counts.EYE_PAIN).toBe(1);
+    expect(summarize([]).counts.EYE_PAIN).toBe(0);
+    expect(() =>
+      parseImport(JSON.stringify({ version: 3, records: [{ ...records[0], grams: 1 }] })),
+    ).toThrow();
+  });
   it('preserves Android v1 data as unassigned and v2 identities', () => {
     const row = { id: 'uuid-1', type: 'FOOD', timestamp: 1234, grams: 0 };
     expect(parseImport(JSON.stringify({ version: 1, records: [row] }))[0]).toMatchObject({

@@ -1,6 +1,25 @@
 import { test, expect } from '../helpers/session';
 import { dayKey, monthRange, shiftMonth } from '../../src/model';
 
+test('records eye pain per cat, persists it and updates the daily total and calendar', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'モネのおめめ痛々を記録', exact: true }).click();
+  await expect(page.locator('.history-list')).toContainText('おめめ痛々');
+  await expect(page.locator('.summary')).toContainText('おめめ痛々 1回');
+  await expect(
+    page.getByRole('button', { name: `${dayKey(Date.now())}、記録1件`, exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.locator('.history-list')).toContainText('おめめ痛々');
+  await page.locator('.cat-card.renoir').click();
+  await expect(page.getByText('この日の記録はまだありません。')).toBeVisible();
+  await expect(page.locator('.summary')).toContainText('おめめ痛々 0回');
+  await page.getByRole('button', { name: 'ルノワールのおめめ痛々を記録', exact: true }).click();
+  await expect(page.locator('.summary')).toContainText('おめめ痛々 1回');
+});
+
 test('opens an invitation received while the app is already running', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => {
