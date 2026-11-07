@@ -176,7 +176,7 @@ export class RecordRepository {
       !this.remote ||
       this.syncing ||
       this.disposed ||
-      (typeof navigator !== 'undefined' && !navigator.onLine)
+      (typeof navigator !== 'undefined' && navigator.onLine === false)
     )
       return;
     this.syncing = true;
