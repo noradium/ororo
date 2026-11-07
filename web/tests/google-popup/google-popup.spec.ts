@@ -40,8 +40,12 @@ test('closing the Google popup keeps the welcome login usable', async ({ page })
   const opened = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Googleでログイン', exact: true }).click();
   const popup = await opened;
+  await expect(popup.getByText('Add new account', { exact: true })).toBeVisible();
   await popup.close();
-  await expect(page.getByRole('alert')).toContainText('キャンセル');
+  // Firebase polls closure every 2s (10s on mobile), then waits another 8s
+  // for a possibly in-flight auth event before reporting popup-closed-by-user.
+  // Keep the assertions; only this asynchronous SDK result needs a longer wait.
+  await expect(page.getByRole('alert')).toContainText('キャンセル', { timeout: 20000 });
   await expect(page.locator('.record-grid,.calendar-section')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Googleでログイン', exact: true })).toBeEnabled();
 });
