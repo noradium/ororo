@@ -58,7 +58,7 @@ service cloud.firestore {
           let r = request.resource.data;
           return r.keys().hasAll(['catId', 'type', 'grams', 'occurredAt', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'deletedAt'])
             && r.keys().hasOnly(['catId', 'type', 'grams', 'occurredAt', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'deletedAt'])
-            && r.catId in ['MONET', 'RENOIR', 'UNASSIGNED'] && r.type in ['POOP', 'PEE', 'FOOD', 'VOMIT']
+            && r.catId in ['MONET', 'RENOIR', 'UNASSIGNED'] && r.type in ['POOP', 'PEE', 'FOOD', 'VOMIT', 'EYE_PAIN']
             && r.occurredAt is int && r.occurredAt >= 0 && r.occurredAt < 4102444800000
             && (r.type == 'FOOD' ? (r.grams is number && r.grams >= 0 && r.grams <= 10000) : r.grams == null)
             && r.createdBy is string && r.createdBy.size() > 0 && r.createdBy.size() <= 128

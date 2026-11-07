@@ -319,6 +319,13 @@ main {
 .vomit {
   background: #f1ddda;
 }
+.eye_pain {
+  background: #e8e1f0;
+}
+.record-button.eye_pain {
+  grid-column: 1 / -1;
+  min-height: 100px;
+}
 .record-symbol {
   font-size: 26px;
   line-height: 1;

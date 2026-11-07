@@ -9,6 +9,7 @@ export const TYPES = {
   PEE: { label: 'おしっこ', symbol: '◆', color: '#e4eddb' },
   FOOD: { label: 'ご飯廃棄', symbol: '◒', color: '#f8e8c7' },
   VOMIT: { label: '嘔吐', symbol: '▲', color: '#f1ddda' },
+  EYE_PAIN: { label: 'おめめ痛々', symbol: '◉', color: '#e8e1f0' },
 } as const;
 export type RecordType = keyof typeof TYPES;
 export interface CatRecord {
@@ -104,7 +105,7 @@ export function exportRecords(records: CatRecord[]): string {
   return JSON.stringify({ version: 3, timeZone: TIME_ZONE, records }, null, 2);
 }
 export function summarize(records: CatRecord[]) {
-  const counts = { POOP: 0, PEE: 0, FOOD: 0, VOMIT: 0 };
+  const counts = { POOP: 0, PEE: 0, FOOD: 0, VOMIT: 0, EYE_PAIN: 0 };
   let grams = 0;
   for (const r of records)
     if (r.deletedAt === null) {
