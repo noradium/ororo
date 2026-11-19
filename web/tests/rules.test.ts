@@ -1,5 +1,5 @@
 import { renderAccessRules } from '../scripts/access-config.mjs';
-import { beforeAll, beforeEach, afterAll, expect, it } from 'vitest';
+import { beforeAll, beforeEach, afterAll, expect, it, vi } from 'vitest';
 import {
   initializeTestEnvironment,
   assertFails,
@@ -177,7 +177,7 @@ it('only the owner creates invitations and tokens cannot be listed', async () =>
   await assertFails(getDocs(collection(db('alice'), 'invites')));
   await assertFails(updateDoc(doc(db('bob'), 'invites', token), { usedBy: 'bob' }));
 });
-it('validates record fields, identity, grams and immutable occurrence data', async () => {
+it('validates record fields and allows only valid occurrence corrections', async () => {
   const client = db('alice');
   const ref = doc(client, 'families/family/records/x');
   await assertSucceeds(setDoc(ref, event()));
@@ -193,9 +193,11 @@ it('validates record fields, identity, grams and immutable occurrence data', asy
     setDoc(doc(client, 'families/family/records/bad'), event({ createdBy: 'bob' })),
   );
   await assertFails(updateDoc(ref, { occurredAt: 1, updatedAt: serverTimestamp() }));
-  await assertSucceeds(
-    updateDoc(ref, { catId: 'RENOIR', updatedBy: 'alice', updatedAt: serverTimestamp() }),
-  );
+  const update = { updatedBy: 'alice', updatedAt: serverTimestamp() };
+  await assertFails(updateDoc(ref, { ...update, occurredAt: -1 }));
+  await assertFails(updateDoc(ref, { ...update, occurredAt: 1.5 }));
+  await assertFails(updateDoc(ref, { ...update, occurredAt: 1, grams: 1 }));
+  await assertSucceeds(updateDoc(ref, { ...update, catId: 'RENOIR', occurredAt: 1 }));
 });
 it('shares records with members, enforces revocation and prevents tombstone resurrection', async () => {
   const alice = db('alice');
@@ -231,7 +233,7 @@ it('syncs two independent device outboxes with idempotent retries and deletion-w
       catId: 'MONET' as const,
       type: 'FOOD' as const,
       grams: 0,
-      occurredAt: Date.now(),
+      occurredAt: Date.parse('2026-10-31T14:00:00Z'),
       createdBy: 'alice',
       deletedAt: null,
     };
@@ -240,22 +242,35 @@ it('syncs two independent device outboxes with idempotent retries and deletion-w
     expect(await localA.pending(a.scope)).toEqual([]);
     const received = await b.exportAll();
     expect(received[0]).toMatchObject({ id: 'shared', grams: 0, catId: 'MONET' });
-    await localB.put(b.scope, { ...received[0], catId: 'RENOIR' }, true);
+    const movedAt = Date.parse('2026-10-31T15:00:00Z');
+    await localB.update(b.scope, 'shared', { catId: 'RENOIR' }, true);
+    await localA.update(a.scope, 'shared', { occurredAt: movedAt }, true);
     await b.flush();
-    expect((await a.exportAll())[0].catId).toBe('RENOIR');
-    const latest = (await a.exportAll())[0];
-    await localA.put(a.scope, { ...latest, deletedAt: Date.now() }, true);
+    await b.watchMonth('2026-10');
     await a.flush();
+    await vi.waitFor(async () => expect(await localB.records(b.scope)).toEqual([]));
+    await b.watchMonth('2026-11');
+    await vi.waitFor(async () =>
+      expect((await localB.records(b.scope))[0]).toMatchObject({
+        id: 'shared',
+        occurredAt: movedAt,
+        catId: 'RENOIR',
+      }),
+    );
+    expect((await a.exportAll())[0]).toMatchObject({ occurredAt: movedAt, catId: 'RENOIR' });
     // An offline edit from another device cannot resurrect a deleted record.
-    await localB.put(b.scope, { ...received[0], catId: 'MONET' }, true);
+    await localB.update(b.scope, 'shared', { occurredAt: record.occurredAt }, true);
+    await localA.update(a.scope, 'shared', { deletedAt: Date.now() }, true);
+    await a.flush();
     await b.flush();
+    expect((await b.exportAll())[0]).toMatchObject({ occurredAt: movedAt });
     expect((await b.exportAll())[0].deletedAt).not.toBeNull();
     expect(await localB.pending(b.scope)).toEqual([]);
     await localA.insert(a.scope, { ...record, id: 'retry' }, true);
     const pending = (await localA.pending(a.scope))[0];
     await a.flush();
-    await localA.put(a.scope, pending.record, true, true);
-    await a.flush();
+    expect(await localB.insert(b.scope, pending.record, true)).toBe(true);
+    await b.flush();
     expect((await a.exportAll()).filter((r) => r.id === 'retry')).toHaveLength(1);
   } finally {
     a.dispose();

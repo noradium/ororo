@@ -4,7 +4,10 @@ import { auth, configured, firestore, loadFamily, type Family } from './firebase
 import {
   CATS,
   TYPES,
+  TIME_ZONE,
   dayKey,
+  dateTimeInputValue,
+  parseDateTimeInput,
   shiftMonth,
   summarize,
   parseImport,
@@ -18,6 +21,8 @@ import { RecordRepository, type StoreState } from './repository';
 import { FamilyPanel, friendlyError } from './FamilyPanel';
 import { Portrait } from './Portrait';
 import { Modal } from './Modal';
+
+type Entry = { kind: 'food' | 'past'; cat: CatId } | { kind: 'edit'; record: CatRecord };
 
 const initialState: StoreState = {
   scope: '',
@@ -58,7 +63,7 @@ export function readInvitation() {
 }
 const time = (stamp: number) =>
   new Intl.DateTimeFormat('ja-JP', {
-    timeZone: 'Asia/Tokyo',
+    timeZone: TIME_ZONE,
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
@@ -92,7 +97,9 @@ export function Diary({
   const [month, setMonth] = useState(today.slice(0, 7));
   const [received, setState] = useState(initialState);
   const [panel, setPanel] = useState<'family' | 'data' | null>(invitation ? 'family' : null);
-  const [foodCat, setFoodCat] = useState<CatId | null>(null);
+  const [entry, setEntry] = useState<Entry | null>(null);
+  const [entryType, setEntryType] = useState<RecordType>('POOP');
+  const [entryDateTime, setEntryDateTime] = useState('');
   const [grams, setGrams] = useState('');
   const [assign, setAssign] = useState<CatRecord | null>(null);
   const [deleting, setDeleting] = useState<CatRecord | null>(null);
@@ -218,14 +225,49 @@ export function Diary({
       setBusy(false);
     }
   }
-  async function add(type: RecordType, amount: number | null, target = cat) {
-    await repo.add(target, type, amount);
-    const now = dayKey(Date.now());
+  function showRecordDay(occurredAt: number) {
+    const date = dayKey(occurredAt);
+    setToday(dayKey(Date.now()));
+    setSelected(date);
+    setMonth(date.slice(0, 7));
+  }
+  async function add(
+    type: RecordType,
+    amount: number | null,
+    target = cat,
+    occurredAt = Date.now(),
+  ) {
+    await repo.add(target, type, amount, occurredAt);
     setCat(target);
-    setToday(now);
-    setSelected(now);
-    setMonth(now.slice(0, 7));
+    showRecordDay(occurredAt);
     announce(`${CATS[target].name}の${TYPES[type].label}を記録しました`);
+  }
+  function openEntry(next: Entry) {
+    const now = dateTimeInputValue(Date.now());
+    const selectedDateTime = selected < now.slice(0, 10) ? selected + now.slice(10) : now;
+    setEntryType(next.kind === 'food' ? 'FOOD' : 'POOP');
+    setEntryDateTime(
+      next.kind === 'edit' ? dateTimeInputValue(next.record.occurredAt) : selectedDateTime,
+    );
+    setGrams('');
+    setError('');
+    setEntry(next);
+  }
+  async function saveEntry(current: Entry) {
+    const occurredAt = current.kind === 'food' ? Date.now() : parseDateTimeInput(entryDateTime);
+    if (current.kind === 'edit') {
+      if (entryDateTime !== dateTimeInputValue(current.record.occurredAt)) {
+        await repo.edit(current.record.id, { occurredAt });
+        showRecordDay(occurredAt);
+        announce('記録の日時を変更しました');
+      }
+    } else {
+      const type = current.kind === 'food' ? 'FOOD' : entryType;
+      if (type === 'FOOD' && (!/^\d+(\.\d{1,2})?$/.test(grams) || Number(grams) > 10000))
+        throw new Error('0〜10000 gを小数点以下2桁までで入力してください。');
+      await add(type, type === 'FOOD' ? Number(grams) : null, current.cat, occurredAt);
+    }
+    setEntry(null);
   }
   function familyReady(next: Family) {
     setFamily(next);
@@ -367,10 +409,8 @@ export function Diary({
                   disabled={recordingDisabled}
                   aria-label={`${CATS[cat].name}の${TYPES[type].label}を記録`}
                   onClick={() => {
-                    if (type === 'FOOD') {
-                      setGrams('');
-                      setFoodCat(cat);
-                    } else void work(() => add(type, null));
+                    if (type === 'FOOD') openEntry({ kind: 'food', cat });
+                    else void work(() => add(type, null));
                   }}
                 >
                   <span className="record-symbol" aria-hidden="true">
@@ -383,7 +423,15 @@ export function Diary({
                 </button>
               ))}
             </div>
-            <p className="fineprint">過去の日付を見ていても、新しい記録は今日に保存します。</p>
+            {cat !== 'UNASSIGNED' && (
+              <button
+                className="secondary full"
+                disabled={recordingDisabled}
+                onClick={() => openEntry({ kind: 'past', cat })}
+              >
+                過去の記録を追加
+              </button>
+            )}
           </section>
           <section className="calendar-section" aria-label="記録カレンダー">
             <div className="section-title">
@@ -509,9 +557,18 @@ export function Diary({
                             ? ' · 家族'
                             : ''}
                       </span>
-                      <button className="text-button small" onClick={() => setAssign(record)}>
-                        {record.catId === 'UNASSIGNED' ? '猫を選ぶ' : '猫を変更'}
-                      </button>
+                      <div className="event-actions">
+                        <button className="text-button small" onClick={() => setAssign(record)}>
+                          {record.catId === 'UNASSIGNED' ? '猫を選ぶ' : '猫を変更'}
+                        </button>
+                        <button
+                          className="text-button small"
+                          disabled={busy}
+                          onClick={() => openEntry({ kind: 'edit', record })}
+                        >
+                          日時を変更
+                        </button>
+                      </div>
                     </div>
                     <button
                       className="delete-button"
@@ -666,41 +723,83 @@ export function Diary({
           )}
         </Modal>
       )}
-      {foodCat && (
-        <Modal title={`${CATS[foodCat].name}のご飯廃棄`} onClose={() => setFoodCat(null)}>
+      {entry && (
+        <Modal
+          title={
+            entry.kind === 'edit'
+              ? '記録の日時を変更'
+              : `${CATS[entry.cat].name}の${entry.kind === 'food' ? 'ご飯廃棄' : '過去の記録'}`
+          }
+          onClose={() => setEntry(null)}
+        >
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              void work(async () => {
-                if (!/^\d+(\.\d{1,2})?$/.test(grams) || Number(grams) > 10000)
-                  throw new Error('0〜10000 gを小数点以下2桁までで入力してください。');
-                await add('FOOD', Number(grams), foodCat);
-                setFoodCat(null);
-              });
+              if (!busy) void work(() => saveEntry(entry));
             }}
           >
-            <p className="muted">ご飯を交換するときに、残っている量を記録します。</p>
-            <label htmlFor="grams">残っているご飯の量</label>
-            <div className="weight-input">
-              <input
-                id="grams"
-                autoFocus
-                inputMode="decimal"
-                required
-                value={grams}
-                onChange={(e) => setGrams(e.target.value)}
-                placeholder="12.5"
-              />
-              <span>g</span>
-            </div>
-            <p className="fineprint">食べきったら0 g。与えた量からの自動計算は行いません。</p>
+            {entry.kind === 'food' && (
+              <p className="muted">ご飯を交換するときに、残っている量を記録します。</p>
+            )}
+            {entry.kind === 'past' && (
+              <>
+                <label htmlFor="entry-type">記録の種類</label>
+                <select
+                  id="entry-type"
+                  value={entryType}
+                  onChange={(e) => setEntryType(e.target.value as RecordType)}
+                >
+                  {(Object.keys(TYPES) as RecordType[]).map((type) => (
+                    <option key={type} value={type}>
+                      {TYPES[type].label}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+            {entry.kind === 'edit' && (
+              <p>
+                {CATS[entry.record.catId].name} / {TYPES[entry.record.type].label}
+              </p>
+            )}
+            {entry.kind !== 'food' && (
+              <>
+                <label htmlFor="entry-datetime">記録日時（日本時間）</label>
+                <input
+                  id="entry-datetime"
+                  type="datetime-local"
+                  min={dateTimeInputValue(0)}
+                  required
+                  value={entryDateTime}
+                  onChange={(e) => setEntryDateTime(e.target.value)}
+                />
+              </>
+            )}
+            {entry.kind !== 'edit' && entryType === 'FOOD' && (
+              <>
+                <label htmlFor="grams">残っているご飯の量</label>
+                <div className="weight-input">
+                  <input
+                    id="grams"
+                    autoFocus={entry.kind === 'food'}
+                    inputMode="decimal"
+                    required
+                    value={grams}
+                    onChange={(e) => setGrams(e.target.value)}
+                    placeholder="12.5"
+                  />
+                  <span>g</span>
+                </div>
+                <p className="fineprint">食べきったら0 g。与えた量からの自動計算は行いません。</p>
+              </>
+            )}
             {error && (
               <p className="error" role="alert">
                 {error}
               </p>
             )}
             <button className="primary full" disabled={busy}>
-              記録する
+              {entry.kind === 'edit' ? '変更を保存' : '記録する'}
             </button>
           </form>
         </Modal>

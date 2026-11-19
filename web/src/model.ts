@@ -21,7 +21,12 @@ export interface CatRecord {
   createdBy: string;
   deletedAt: number | null;
 }
+export type RecordChanges = Partial<Pick<CatRecord, 'catId' | 'occurredAt' | 'deletedAt'>>;
+
 export const TIME_ZONE = 'Asia/Tokyo';
+const OCCURRENCE_LIMIT = 4102444800000;
+const TOKYO_OFFSET_MS = 9 * 3600000;
+
 export function dayKey(timestamp: number): string {
   return new Intl.DateTimeFormat('sv-SE', {
     timeZone: TIME_ZONE,
@@ -30,9 +35,25 @@ export function dayKey(timestamp: number): string {
     day: '2-digit',
   }).format(timestamp);
 }
+export function dateTimeInputValue(timestamp: number): string {
+  return new Date(timestamp + TOKYO_OFFSET_MS).toISOString().slice(0, 16);
+}
+export function parseDateTimeInput(value: string, now = Date.now()): number {
+  const timestamp = Date.parse(`${value}+09:00`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) ||
+    !Number.isFinite(timestamp) ||
+    timestamp < 0 ||
+    timestamp >= OCCURRENCE_LIMIT ||
+    dateTimeInputValue(timestamp) !== value
+  )
+    throw new Error('日付と時刻を正しく入力してください。');
+  if (timestamp > now) throw new Error('現在までの日付と時刻を選んでください。');
+  return timestamp;
+}
 export function monthRange(month: string): [number, number] {
   const [y, m] = month.split('-').map(Number);
-  return [Date.UTC(y, m - 1, 1) - 9 * 3600000, Date.UTC(y, m, 1) - 9 * 3600000];
+  return [Date.UTC(y, m - 1, 1) - TOKYO_OFFSET_MS, Date.UTC(y, m, 1) - TOKYO_OFFSET_MS];
 }
 export function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split('-').map(Number);
@@ -49,7 +70,7 @@ export function validateRecord(value: unknown): CatRecord {
     !Object.hasOwn(TYPES, r.type) ||
     !Number.isSafeInteger(r.occurredAt) ||
     r.occurredAt < 0 ||
-    r.occurredAt >= 4102444800000 ||
+    r.occurredAt >= OCCURRENCE_LIMIT ||
     typeof r.createdBy !== 'string' ||
     r.createdBy.length > 128 ||
     !(r.deletedAt === null || (Number.isSafeInteger(r.deletedAt) && r.deletedAt >= 0))

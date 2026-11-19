@@ -47,7 +47,7 @@ it('survives reopen and never duplicates an imported ID or resurrects a tombston
   const name = `test-${crypto.randomUUID()}`;
   const first = new LocalDatabase(name);
   await first.insert('local', record(), false);
-  await first.put('local', { ...record(), deletedAt: 10 }, false);
+  await first.update('local', 'a', { deletedAt: 10 }, false);
   await first.close();
   const reopened = new LocalDatabase(name);
   databases.push(reopened);
@@ -58,7 +58,7 @@ it('does not discard an edit arriving while a create is being sent', async () =>
   const db = database();
   await db.insert('s', record(), true);
   const sent = (await db.pending('s'))[0];
-  await db.put('s', { ...record(), catId: 'RENOIR' }, true);
+  await db.update('s', 'a', { catId: 'RENOIR' }, true);
   await db.acknowledge(sent, record());
   expect((await db.pending('s'))[0].kind).toBe('create-edit');
   expect((await db.records('s'))[0].catId).toBe('RENOIR');
@@ -72,20 +72,36 @@ it('keeps a deletion queued even if an older server response arrives', async () 
   const db = database();
   await db.insert('s', record(), true);
   const sent = (await db.pending('s'))[0];
-  await db.put('s', { ...record(), deletedAt: 42 }, true);
+  await db.update('s', 'a', { deletedAt: 42 }, true);
   await db.acknowledge(sent, record());
   expect((await db.pending('s'))[0].record.deletedAt).toBe(42);
   expect((await db.records('s'))[0].deletedAt).toBe(42);
+});
+it('removes records moved out of the synced range while retaining pending edits', async () => {
+  const db = database();
+  await db.insert('family', record('moved'), false);
+  await db.insert('family', record('pending'), true);
+  await db.insert('family', { ...record('other-month'), occurredAt: 100 }, false);
+
+  await db.merge('family', [], [0, 100]);
+  expect((await db.records('family')).map((r) => r.id)).toEqual(['other-month', 'pending']);
 });
 it('local repository supports recording, reassignment, deletion and deduplicated imports', async () => {
   const db = database();
   const repo = new RecordRepository(db);
   await repo.add('MONET', 'POOP', null);
-  await repo.add('RENOIR', 'FOOD', 0);
+  await repo.add('RENOIR', 'FOOD', 0, 0);
   const rows = await repo.exportAll();
   expect(rows).toHaveLength(2);
   expect(await repo.import(rows)).toBe(0);
   const poop = rows.find((r) => r.type === 'POOP')!;
+  const food = rows.find((r) => r.type === 'FOOD')!;
+  expect(food.occurredAt).toBe(0);
+  await repo.edit(food.id, { occurredAt: 1234 });
+  expect((await repo.exportAll()).find((r) => r.id === food.id)).toEqual({
+    ...food,
+    occurredAt: 1234,
+  });
   await repo.edit(poop.id, { catId: 'RENOIR' });
   await repo.edit(poop.id, { deletedAt: 10 });
   expect((await repo.exportAll()).find((r) => r.id === poop.id)).toMatchObject({
