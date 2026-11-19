@@ -69,7 +69,7 @@ service cloud.firestore {
         allow create: if member(family) && record.matches('^[A-Za-z0-9_-]{1,128}$') && validRecord() && request.resource.data.createdBy == request.auth.uid
           && request.resource.data.createdAt == request.time;
         allow update: if member(family) && validRecord() && resource.data.deletedAt == null
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['catId', 'deletedAt', 'updatedAt', 'updatedBy']);
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['catId', 'occurredAt', 'deletedAt', 'updatedAt', 'updatedBy']);
         allow delete: if false;
       }
     }

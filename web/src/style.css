@@ -15,7 +15,8 @@ body {
   margin: 0;
 }
 button,
-input {
+input,
+select {
   font: inherit;
 }
 button {
@@ -50,7 +51,8 @@ button {
 button::-moz-focus-inner {
   border: 0;
 }
-input {
+input,
+select {
   width: 100%;
   border: 1px solid #d8ddd3;
   background: #fff;
@@ -59,7 +61,8 @@ input {
   font-size: 16px;
   color: inherit;
 }
-input:focus {
+input:focus,
+select:focus {
   outline: 2px solid #668774;
   outline-offset: 2px;
 }
@@ -539,8 +542,10 @@ main {
   color: #959b90;
   padding: 8px;
 }
-.history-list .text-button {
-  align-self: flex-start;
+.event-actions {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 10px;
 }
 footer {
   display: flex;

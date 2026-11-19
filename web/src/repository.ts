@@ -10,8 +10,15 @@ import {
   type Firestore,
   type DocumentData,
 } from 'firebase/firestore';
-import { LocalDatabase, type Pending } from './storage';
-import { type CatRecord, type CatId, type RecordType, monthRange, validateRecord } from './model';
+import { LocalDatabase, pendingChanges, type Pending } from './storage';
+import {
+  type CatRecord,
+  type CatId,
+  type RecordChanges,
+  type RecordType,
+  monthRange,
+  validateRecord,
+} from './model';
 
 export interface Remote {
   db: Firestore;
@@ -98,11 +105,18 @@ export class RecordRepository {
       async (snapshot) => {
         if (this.disposed || generation !== this.generation) return;
         try {
+          if (snapshot.metadata.fromCache) {
+            this.connected = false;
+            await this.emit();
+            return;
+          }
+          if (snapshot.metadata.hasPendingWrites) return;
           await this.local.merge(
             this.scope,
             snapshot.docs.map((d) => decode(d.id, d.data())),
+            [start, end],
           );
-          this.connected = !snapshot.metadata.fromCache;
+          this.connected = true;
           this.error = '';
           await this.emit();
         } catch {
@@ -118,14 +132,14 @@ export class RecordRepository {
     );
     void this.flush();
   }
-  async add(catId: CatId, type: RecordType, grams: number | null) {
+  async add(catId: CatId, type: RecordType, grams: number | null, occurredAt = Date.now()) {
     if (catId === 'UNASSIGNED') throw new Error('記録する猫を選んでください。');
     const record = validateRecord({
       id: crypto.randomUUID(),
       catId,
       type,
       grams,
-      occurredAt: Date.now(),
+      occurredAt,
       createdBy: this.remote?.uid ?? 'local',
       deletedAt: null,
     });
@@ -133,10 +147,8 @@ export class RecordRepository {
     await this.emit();
     void this.flush();
   }
-  async edit(id: string, changes: { catId?: CatId; deletedAt?: number }) {
-    const record = (await this.local.records(this.scope)).find((r) => r.id === id);
-    if (!record || record.deletedAt !== null) throw new Error('変更する記録が見つかりません。');
-    await this.local.put(this.scope, { ...record, ...changes }, !!this.remote);
+  async edit(id: string, changes: RecordChanges) {
+    await this.local.update(this.scope, id, changes, !!this.remote);
     await this.emit();
     void this.flush();
   }
@@ -207,13 +219,14 @@ export class RecordRepository {
         const existing = decode(snapshot.id, snapshot.data());
         // Import/retry cannot overwrite an existing ID. Tombstones always win.
         if (pending.kind === 'create' || existing.deletedAt !== null) return existing;
+        const changes = pendingChanges(pending);
         tx.update(ref, {
-          catId: r.catId,
-          deletedAt: r.deletedAt !== null ? serverTimestamp() : null,
+          ...changes,
+          ...(changes.deletedAt != null ? { deletedAt: serverTimestamp() } : {}),
           updatedBy: remote.uid,
           updatedAt: serverTimestamp(),
         });
-        return { ...existing, catId: r.catId, deletedAt: r.deletedAt };
+        return { ...existing, ...changes };
       }
       if (pending.kind === 'edit') throw new Error('元の記録が見つかりません。');
       tx.set(ref, {

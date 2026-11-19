@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { parseImport, exportRecords, dayKey, monthRange, shiftMonth, summarize } from './model';
+import {
+  parseImport,
+  exportRecords,
+  dateTimeInputValue,
+  parseDateTimeInput,
+  dayKey,
+  monthRange,
+  shiftMonth,
+  summarize,
+} from './model';
 
 describe('Android migration and calendar', () => {
   it('preserves eye-pain records in exports and counts only active entries', () => {
@@ -74,6 +83,13 @@ describe('Android migration and calendar', () => {
     ]);
     expect(shiftMonth('2027-01', -1)).toBe('2026-12');
     expect(shiftMonth('2026-12', 1)).toBe('2027-01');
+  });
+  it('round-trips Japanese calendar times and rejects impossible and future dates', () => {
+    const timestamp = Date.parse('2026-12-31T15:01:00Z');
+    expect(dateTimeInputValue(timestamp)).toBe('2027-01-01T00:01');
+    expect(parseDateTimeInput('2027-01-01T00:01', timestamp)).toBe(timestamp);
+    expect(() => parseDateTimeInput('2027-01-01T00:02', timestamp)).toThrow(/現在/);
+    expect(() => parseDateTimeInput('2026-02-30T12:00', timestamp)).toThrow();
   });
   it('retains tombstones during export and excludes them from totals', () => {
     const records = parseImport(

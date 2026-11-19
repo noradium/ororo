@@ -134,6 +134,43 @@ test('opens historical months and shows per-cat calendar counts', async ({ page 
   await expect(page.getByText('この日の記録はまだありません。')).toBeVisible();
 });
 
+test('adds a missed record and corrects its date across months', async ({ page }) => {
+  const current = dayKey(Date.now());
+  const month = shiftMonth(current.slice(0, 7), -1);
+  const original = `${month}-01`;
+  await page.goto('/');
+  await page.getByRole('button', { name: '前の月' }).click();
+  await page.getByRole('button', { name: `${original}、記録0件`, exact: true }).click();
+  await page.getByRole('button', { name: '過去の記録を追加' }).click();
+  const dialog = page.getByRole('dialog');
+  const dateTime = dialog.getByLabel('記録日時（日本時間）');
+  await expect(dateTime).toHaveValue(new RegExp(`^${original}T`));
+  await dateTime.fill(`${original}T08:15`);
+  await dialog.getByLabel('記録の種類').selectOption('FOOD');
+  await dialog.getByLabel('残っているご飯の量').fill('0');
+  await dialog.getByRole('button', { name: '記録する', exact: true }).click();
+  await expect(page.locator('.history-list')).toContainText('08:15');
+  await expect(page.locator('.history-list')).toContainText('0 g');
+  await expect(
+    page.getByRole('button', { name: `${original}、記録1件`, exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: '日時を変更', exact: true }).click();
+  await expect(dateTime).toHaveValue(`${original}T08:15`);
+  await dateTime.fill(`${current}T00:00`);
+  await dialog.getByRole('button', { name: '変更を保存', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: `${current}、記録1件`, exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.history-list')).toContainText('00:00');
+  await page.reload();
+  await expect(page.locator('.history-list')).toContainText('0 g');
+  await page.getByRole('button', { name: '前の月' }).click();
+  await expect(
+    page.getByRole('button', { name: `${original}、記録0件`, exact: true }),
+  ).toBeVisible();
+});
+
 test('installed service worker opens offline and persists a new record across offline reloads', async ({
   page,
   context,
